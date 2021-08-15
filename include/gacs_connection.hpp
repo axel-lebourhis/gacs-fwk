@@ -81,9 +81,11 @@ namespace gacs
             asio::post(asioContext_,
                 [this, msg]()
                 {
-                    bool was_not_empty = !outMessageQ_.empty();
+                    /* we make the assumption that if the out message queue is not empty
+                     * then ASIO is busy sending it */
+                    bool isAlreadySending = !outMessageQ_.empty();
                     outMessageQ_.push_back(msg);
-                    if(!was_not_empty)
+                    if(!isAlreadySending)
                     {
                         write_header();
                     }
@@ -102,22 +104,114 @@ namespace gacs
 
         void read_header()
         {
+            asio::async_read(socket_, asio::buffer(&tempMessage_.header, sizeof(message_header<T>)),
+                [this](std::error_code ec, std::size_t length)
+                {
+                    if(!ec)
+                    {
+                        if(tempMessage_.header.size > 0)
+                        {
+                            tempMessage_.body.resize(tempMessage_.header.size);
+                            read_body();
+                        }
+                        else
+                        {
+                            add_to_incoming_message_queue();
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "[" << id_ << "]" << " Read header failed\n";
+                        socket_.close();
+                    }
+                }
 
+            );
         }
 
         void read_body()
         {
-
+            asio::async_read(socket_, asio::buffer(tempMessage_.body.data(), tempMessage_.body.size()),
+                [this](std::error_code ec, std::size_t length)
+                {
+                    if(!ec)
+                    {
+                        add_to_incoming_message_queue();
+                    }
+                    else
+                    {
+                        std::cout << "[" << id_ << "]" << " Read body failed\n";
+                        socket_.close();
+                    }
+                }
+            );
         }
 
         void write_header()
         {
+            asio::async_write(socket_, asio::buffer(&outMessageQ_.front().header, sizeof(message_header<T>)),
+                [this](std::error_code ec, std::size_t length)
+                {
+                    if(!ec)
+                    {
+                        if(outMessageQ_.front().body.size() > 0)
+                        {
+                            write_body();
+                        }
+                        else
+                        {
+                            outMessageQ_.pop_front();
 
+                            if(!outMessageQ_.empty())
+                            {
+                                write_header();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "[" << id_ << "]" << " Write header failed\n";
+                        socket_.close();
+                    }
+                }
+            );
         }
 
         void write_body()
         {
+            asio::async_write(socket_, asio::buffer(outMessageQ_.front().body.data(), outMessageQ_.front().body.size()),
+                [this](std::error_code ec, std::size_t length)
+                {
+                    if(!ec)
+                    {
+                        outMessageQ_.pop_front();
 
+                        if(!outMessageQ_.empty())
+                        {
+                            write_header();
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "[" << id_ << "]" << " Write body failed\n";
+                        socket_.close();
+                    }
+                }
+            );
+        }
+
+        void add_to_incoming_message_queue()
+        {
+            if(ownerType_ == owner::server)
+            {
+                inMessageQ_.push_back({ this->shared_from_this(), tempMessage_ });
+            }
+            else
+            {
+                inMessageQ_.push_back({ nullptr, tempMessage_ });
+            }
+
+            read_header();
         }
     };
 }
