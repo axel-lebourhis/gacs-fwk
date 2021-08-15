@@ -1,5 +1,4 @@
-#include <gacs_common.hpp>
-#include <gacs_server.hpp>
+#include <gacs_fwk.hpp>
 
 enum class MessageTypes : uint32_t
 {
