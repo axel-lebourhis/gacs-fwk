@@ -11,7 +11,7 @@ namespace gacs
     class server_interface
     {
     private:
-        uint32_t IDCounter_;
+        uint32_t IDCounter_ = 0;
 
         /* Thread safe queue for incoming messages */
         tsqueue<owned_message<T>> inMessageQ_;
