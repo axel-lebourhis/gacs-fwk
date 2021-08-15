@@ -10,20 +10,6 @@ namespace gacs
     template<typename T>
     class server_interface
     {
-    private:
-        uint32_t IDCounter_ = 0;
-
-        /* Thread safe queue for incoming messages */
-        tsqueue<owned_message<T>> inMessageQ_;
-
-        /* Queue of active connections */
-        std::deque<std::shared_ptr<connection<T>>> deqConnections_;
-
-        /* ASIO members */
-        asio::io_context        asioContext_;
-        std::thread             asioThread_;
-        asio::ip::tcp::acceptor asioAcceptor_;
-
     public:
         server_interface(uint16_t port)
             : asioAcceptor_(asioContext_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
@@ -182,5 +168,19 @@ namespace gacs
         {
 
         }
+
+    protected:
+        uint32_t IDCounter_ = 0;
+
+        /* Thread safe queue for incoming messages */
+        tsqueue<owned_message<T>> inMessageQ_;
+
+        /* Queue of active connections */
+        std::deque<std::shared_ptr<connection<T>>> deqConnections_;
+
+        /* ASIO members */
+        asio::io_context        asioContext_;
+        std::thread             asioThread_;
+        asio::ip::tcp::acceptor asioAcceptor_;
     };
 }

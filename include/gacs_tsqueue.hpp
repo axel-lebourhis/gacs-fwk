@@ -7,7 +7,7 @@ namespace gacs
     template<typename T>
     class tsqueue
     {
-    private:
+    protected:
         std::deque<T> queue;
         std::mutex queueMutex;
 

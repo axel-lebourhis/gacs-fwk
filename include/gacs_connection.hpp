@@ -94,14 +94,6 @@ namespace gacs
         }
 
     private:
-        asio::ip::tcp::socket socket_;
-        asio::io_context& asioContext_;
-        tsqueue<message<T>> outMessageQ_;
-        tsqueue<owned_message<T>>& inMessageQ_;
-        message<T> tempMessage_;
-        owner ownerType_ = owner::server;
-        uint32_t id_ = 0;
-
         void read_header()
         {
             asio::async_read(socket_, asio::buffer(&tempMessage_.header, sizeof(message_header<T>)),
@@ -213,5 +205,15 @@ namespace gacs
 
             read_header();
         }
+
+    protected:
+        asio::ip::tcp::socket socket_;
+        asio::io_context& asioContext_;
+        tsqueue<message<T>> outMessageQ_;
+        tsqueue<owned_message<T>>& inMessageQ_;
+        message<T> tempMessage_;
+        owner ownerType_ = owner::server;
+        uint32_t id_ = 0;
+
     };
 }
