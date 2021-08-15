@@ -37,7 +37,7 @@ namespace gacs
                 if(socket_.is_open())
                 {
                     id_ = uid;
-                    // read_header();
+                    read_header();
                 }
             }
         }
@@ -51,7 +51,7 @@ namespace gacs
                     {
                         if(!ec)
                         {
-                            // read_header();
+                            read_header();
                         }
                     }
                 );
@@ -85,7 +85,7 @@ namespace gacs
                     outMessageQ_.push_back(msg);
                     if(!was_not_empty)
                     {
-                        // write_header();
+                        write_header();
                     }
                 }
             );
@@ -99,5 +99,25 @@ namespace gacs
         message<T> tempMessage_;
         owner ownerType_ = owner::server;
         uint32_t id_ = 0;
+
+        void read_header()
+        {
+
+        }
+
+        void read_body()
+        {
+
+        }
+
+        void write_header()
+        {
+
+        }
+
+        void write_body()
+        {
+
+        }
     };
 }
