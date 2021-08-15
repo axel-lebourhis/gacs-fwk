@@ -19,7 +19,7 @@ namespace gacs
         connection(owner parent, asio::io_context& asioContext, asio::ip::tcp::socket socket, tsqueue<owned_message<T>>& qIn)
             : asioContext_(asioContext), socket_(std::move(socket)), inMessageQ_(qIn)
         {
-
+            ownerType_ = parent;
         }
 
         virtual ~connection()
