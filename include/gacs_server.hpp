@@ -81,8 +81,12 @@ namespace gacs
                         std::cout << "[SERVER] New Connection: " << socket.remote_endpoint() << "\n";
 
                         std::shared_ptr<connection<T>> newconn =
-                            std::make_shared<connection<T>>(connection<T>::owner::server,
-                                asioContext_, std::move(socket), inMessageQ_);
+                            std::make_shared<connection<T>>(
+                                connection<T>::owner::server,
+                                asioContext_,
+                                std::move(socket),
+                                inMessageQ_
+                            );
 
                         if(on_client_connect(newconn))
                         {
