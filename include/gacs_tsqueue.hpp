@@ -8,8 +8,11 @@ namespace gacs
     class tsqueue
     {
     protected:
-        std::deque<T> queue;
-        std::mutex queueMutex;
+        std::deque<T> queue_;
+        std::mutex queueMutex_;
+
+        std::condition_variable cvBlocking_;
+        std::mutex cvMutex_;
 
     public:
         tsqueue() = default;
@@ -18,66 +21,81 @@ namespace gacs
 
         const T& front()
         {
-            std::scoped_lock lock(queueMutex);
-            return queue.front();
+            std::scoped_lock lock(queueMutex_);
+            return queue_.front();
         }
 
         const T& back()
         {
-            std::scoped_lock lock(queueMutex);
-            return queue.back();
+            std::scoped_lock lock(queueMutex_);
+            return queue_.back();
         }
 
         void clear()
         {
-            std::scoped_lock lock(queueMutex);
-            queue.clear();
+            std::scoped_lock lock(queueMutex_);
+            queue_.clear();
         }
 
         T pop_front()
         {
-            std::scoped_lock lock(queueMutex);
+            std::scoped_lock lock(queueMutex_);
             /* deque's pop_front only deletes the item, it doesn't return it
              * So we cache the front item before deleting it
              * std::move avoids the copy */
-            auto t = std::move(queue.front());
-            queue.pop_front();
+            auto t = std::move(queue_.front());
+            queue_.pop_front();
             return t;
         }
 
         T pop_back()
         {
-            std::scoped_lock lock(queueMutex);
+            std::scoped_lock lock(queueMutex_);
             /* deque's pop_back only deletes the item, it doesn't return it
              * So we cache the back item before deleting it from the deque
              * std::move avoids the copy */
-            auto t = std::move(queue.back());
-            queue.pop_back();
+            auto t = std::move(queue_.back());
+            queue_.pop_back();
             return t;
         }
 
         void push_front(const T& item)
         {
-            std::scoped_lock lock(queueMutex);
-            queue.emplace_front((std::move(item)));
+            std::scoped_lock lock(queueMutex_);
+            queue_.emplace_front((std::move(item)));
+
+            std::unique_lock<std::mutex> ul(cvMutex_);
+            cvBlocking_.notify_one();
         }
 
         void push_back(const T& item)
         {
-            std::scoped_lock lock(queueMutex);
-            queue.emplace_back(std::move(item));
+            std::scoped_lock lock(queueMutex_);
+            queue_.emplace_back(std::move(item));
+
+            std::unique_lock<std::mutex> ul(cvMutex_);
+            cvBlocking_.notify_one();
         }
 
         bool empty()
         {
-            std::scoped_lock lock(queueMutex);
-            return queue.empty();
+            std::scoped_lock lock(queueMutex_);
+            return queue_.empty();
         }
 
         size_t size()
         {
-            std::scoped_lock lock(queueMutex);
-            return queue.size();
+            std::scoped_lock lock(queueMutex_);
+            return queue_.size();
+        }
+
+        void wait()
+        {
+            while(empty())
+            {
+                std::unique_lock<std::mutex> ul(cvMutex_);
+                cvBlocking_.wait(ul);
+            }
         }
     };
 }

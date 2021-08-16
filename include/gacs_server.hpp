@@ -139,9 +139,14 @@ namespace gacs
             }
         }
 
-        void update(size_t nMaxMessages = -1)
+        void update(size_t nMaxMessages = -1, bool wait = false)
         {
             size_t count = 0;
+
+            if(wait)
+            {
+                inMessageQ_.wait();
+            }
 
             while(count < nMaxMessages && !inMessageQ_.empty())
             {
