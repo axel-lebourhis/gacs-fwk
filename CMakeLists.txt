@@ -15,4 +15,6 @@ target_link_libraries(gacs_common INTERFACE
     wsock32
 )
 
-add_subdirectory(tests)
+if(GACS_FWK_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
