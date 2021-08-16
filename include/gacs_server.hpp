@@ -111,7 +111,7 @@ namespace gacs
             }
         }
 
-        void message_all_clients(const message<T>& msg)
+        void message_all_clients(const message<T>& msg, std::shared_ptr<connection<T>> ignoreClient = nullptr)
         {
             bool invalidClientExists = false;
 
@@ -119,7 +119,10 @@ namespace gacs
             {
                 if(client && client->is_connected())
                 {
-                    client->send(msg);
+                    if(client != ignoreClient)
+                    {
+                        client->send(msg);
+                    }
                 }
                 else
                 {

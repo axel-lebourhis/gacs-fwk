@@ -26,7 +26,23 @@ public:
             std::cout << "[" << client->get_id() << "] Ping from client\n";
             client->send(msg);
             break;
+
+        case MessageTypes::MessageAll:
+        {
+            std::cout << "[" << client->get_id() << "] Message to all clients\n";
+
+            gacs::message<MessageTypes> msg;
+            msg.header.id = MessageTypes::ServerMessage;
+            msg << client->get_id();
+            message_all_clients(msg, client);
         }
+            break;
+        }
+    }
+
+    virtual void on_client_disconnect(std::shared_ptr<gacs::connection<MessageTypes>> client)
+    {
+        std::cout << "Client [" << client->get_id() << "] disconnected\n";
     }
 };
 

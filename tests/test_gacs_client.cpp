@@ -24,6 +24,13 @@ public:
         msg << now;
         send(msg);
     }
+
+    void message_to_all_clients()
+    {
+        gacs::message<MessageTypes> msg;
+        msg.header.id = MessageTypes::MessageAll;
+        send(msg);
+    }
 };
 
 int main(void)
@@ -46,7 +53,7 @@ int main(void)
 		}
 
 		if (key[0] && !old_key[0]) client.ping_server();
-		// if (key[1] && !old_key[1]) c.MessageAll();
+		if (key[1] && !old_key[1]) client.message_to_all_clients();
 		if (key[2] && !old_key[2]) exit = true;
 
 		for (int i = 0; i < 3; i++) old_key[i] = key[i];
@@ -76,10 +83,15 @@ int main(void)
                     msg >> then;
                     std::cout << "Ping:" << std::chrono::duration<double>(now - then).count() << "\n";
                 }
-                    break;
+                break;
 
                 case MessageTypes::ServerMessage:
-                    break;
+                {
+                    uint32_t client_id;
+                    msg >> client_id;
+                    std::cout << "Hello from client [" << client_id << "]\n";
+                }
+                break;
 
                 default:
                     std::cout << "Unknown message\n";
