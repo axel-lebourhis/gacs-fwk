@@ -44,6 +44,14 @@ public:
     {
         std::cout << "Client [" << client->get_id() << "] disconnected\n";
     }
+
+    virtual bool on_client_connect(std::shared_ptr<gacs::connection<MessageTypes>> client)
+    {
+        gacs::message<MessageTypes> msg;
+        msg.header.id = MessageTypes::ServerAccept;
+        client->send(msg);
+        return true;
+    }
 };
 
 int main(void)

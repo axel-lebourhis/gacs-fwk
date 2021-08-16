@@ -67,7 +67,7 @@ int main(void)
                 switch (msg.header.id)
                 {
                 case MessageTypes::ServerAccept:
-                    std::cout << "Server Accepted Connection\n";
+                    std::cout << "Server accepted connection\n";
                     break;
 
                 case MessageTypes::ServerDeny:
