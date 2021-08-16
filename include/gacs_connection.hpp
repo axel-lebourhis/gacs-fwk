@@ -6,20 +6,46 @@
 
 namespace gacs
 {
+    enum class ownerType
+    {
+        server,
+        client
+    };
+    template<typename T>
+    class owner
+    {
+    public:
+        owner(ownerType type)
+        {
+            type_ = type;
+        }
+
+        virtual ~owner()
+        {}
+
+        ownerType get_type() const
+        {
+            return type_;
+        }
+
+        virtual bool validate_header(message<T>& msg)
+        {
+            return false;
+        }
+
+    private:
+        ownerType type_;
+    };
+
     template<typename T>
     class connection : public std::enable_shared_from_this<connection<T>>
     {
     public:
-        enum class owner
-        {
-            server,
-            client
-        };
 
-        connection(owner parent, asio::io_context& asioContext, asio::ip::tcp::socket socket, tsqueue<owned_message<T>>& qIn)
-            : asioContext_(asioContext), socket_(std::move(socket)), inMessageQ_(qIn)
+        connection(owner<T>& parent, asio::io_context& asioContext, asio::ip::tcp::socket socket, tsqueue<owned_message<T>>& qIn)
+            : asioContext_(asioContext), socket_(std::move(socket)), inMessageQ_(qIn), owner_(parent)
         {
-            ownerType_ = parent;
+
         }
 
         virtual ~connection()
@@ -32,7 +58,7 @@ namespace gacs
 
         void connect_to_client(uint32_t uid = 0)
         {
-            if(ownerType_ == owner::server)
+            if(owner_.get_type() == ownerType::server)
             {
                 if(socket_.is_open())
                 {
@@ -44,7 +70,7 @@ namespace gacs
 
         void connect_to_server(const asio::ip::tcp::resolver::results_type& endpoints)
         {
-            if(ownerType_ == owner::client)
+            if(owner_.get_type() == ownerType::client)
             {
                 asio::async_connect(socket_, endpoints,
                     [this](std::error_code ec, asio::ip::tcp::endpoint endpoint)
@@ -94,6 +120,11 @@ namespace gacs
         }
 
     private:
+        bool validate_header(message<T>& msg)
+        {
+            return owner_.validate_header(msg);
+        }
+
         void read_header()
         {
             asio::async_read(socket_, asio::buffer(&tempMessage_.header, sizeof(message_header<T>)),
@@ -101,14 +132,26 @@ namespace gacs
                 {
                     if(!ec)
                     {
-                        if(tempMessage_.header.size > 0)
+                        /* Before allocating memory, we need to validate the header
+                         * Bad or malicious client could make the server allocate a lot of memory
+                         * this validation needs to be done by the owner (server) */
+                        if(validate_header(tempMessage_))
                         {
-                            tempMessage_.body.resize(tempMessage_.header.size);
-                            read_body();
+                            if(tempMessage_.header.size > 0)
+                            {
+                                tempMessage_.body.resize(tempMessage_.header.size);
+                                read_body();
+                            }
+                            else
+                            {
+                                add_to_incoming_message_queue();
+                            }
                         }
                         else
                         {
-                            add_to_incoming_message_queue();
+                            /* Header is not valid, we reject the client */
+                            std::cout << "[" << id_ << "]" << " Client is not valid, disconnect\n";
+                            disconnect();
                         }
                     }
                     else
@@ -194,7 +237,7 @@ namespace gacs
 
         void add_to_incoming_message_queue()
         {
-            if(ownerType_ == owner::server)
+            if(owner_.get_type() == ownerType::server)
             {
                 inMessageQ_.push_back({ this->shared_from_this(), tempMessage_ });
             }
@@ -212,8 +255,7 @@ namespace gacs
         tsqueue<message<T>> outMessageQ_;
         tsqueue<owned_message<T>>& inMessageQ_;
         message<T> tempMessage_;
-        owner ownerType_ = owner::server;
+        owner<T>& owner_;
         uint32_t id_ = 0;
-
     };
 }

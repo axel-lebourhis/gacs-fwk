@@ -5,10 +5,11 @@
 namespace gacs
 {
     template<typename T>
-    class client_interface
+    class client_interface : public owner<T>
     {
     public:
         client_interface()
+            : owner<T>(ownerType::client)
         {}
 
         virtual ~client_interface()
@@ -24,7 +25,7 @@ namespace gacs
                 asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(host, std::to_string(port));
 
                 connection_ = std::make_unique<connection<T>>(
-                    connection<T>::owner::client,
+                    *this,
                     asioContext_,
                     asio::ip::tcp::socket(asioContext_),
                     inMessageQ_
@@ -88,5 +89,11 @@ namespace gacs
 
     private:
         tsqueue<owned_message<T>> inMessageQ_;
+
+        bool validate_header(message<T>& msg)
+        {
+            /* We assume client doesn't need to validate server's packet */
+            return true;
+        }
     };
 }

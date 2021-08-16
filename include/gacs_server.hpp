@@ -8,11 +8,12 @@
 namespace gacs
 {
     template<typename T>
-    class server_interface
+    class server_interface : public owner<T>
     {
     public:
         server_interface(uint16_t port)
-            : asioAcceptor_(asioContext_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
+            : asioAcceptor_(asioContext_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
+              owner<T>(ownerType::server)
         {
 
         }
@@ -68,7 +69,7 @@ namespace gacs
 
                         std::shared_ptr<connection<T>> newconn =
                             std::make_shared<connection<T>>(
-                                connection<T>::owner::server,
+                                *this,
                                 asioContext_,
                                 std::move(socket),
                                 inMessageQ_
@@ -190,5 +191,8 @@ namespace gacs
         asio::io_context        asioContext_;
         std::thread             asioThread_;
         asio::ip::tcp::acceptor asioAcceptor_;
+
+    private:
+        virtual bool validate_header(message<T>& msg) = 0;
     };
 }

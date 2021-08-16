@@ -44,6 +44,40 @@ public:
         client->send(msg);
         return true;
     }
+
+private:
+    bool validate_header(gacs::message<MessageTypes>& msg)
+    {
+        switch(msg.header.id)
+        {
+            case MessageTypes::ServerPing:
+                if(msg.header.size > sizeof(ServerPing::body))
+                {
+                    /* Size is too large, this could be bad or malicious client */
+                    return false;
+                }
+                break;
+
+            case MessageTypes::MessageAll:
+                if(msg.header.size > MAX_MESSAGE_SIZE)
+                {
+                    /* The size of the message is suspicious, client is not valid */
+                    return false;
+                }
+                break;
+
+            /* ServerAccept, ServerDeny, ServerMessage: can only be sent by the server, client is not valid
+             * default: all other message ID are not valid
+             */
+            case MessageTypes::ServerAccept:
+            case MessageTypes::ServerDeny:
+            case MessageTypes::ServerMessage:
+            default:
+                return false;
+        }
+
+        return true;
+    }
 };
 
 int main(void)
@@ -54,7 +88,7 @@ int main(void)
 
     while(1)
     {
-        server.update();
+        server.update(-1, true);
     }
 
     return 0;

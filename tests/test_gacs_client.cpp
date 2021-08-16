@@ -8,13 +8,13 @@ class TestClient : public gacs::client_interface<MessageTypes>
 public:
     void ping_server()
     {
+        ServerPing ping{};
         gacs::message<MessageTypes> msg;
-        msg.header.id = MessageTypes::ServerPing;
 
-        /* just for testing */
-        std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+        ping.body.timestamp = std::chrono::system_clock::now();
 
-        msg << now;
+        msg.header.id = ping.header.id;
+        msg << ping.body;
         send(msg);
     }
 
