@@ -17,6 +17,17 @@ public:
     {
 
     }
+
+    virtual void on_message(std::shared_ptr<gacs::connection<MessageTypes>> client, gacs::message<MessageTypes>& msg)
+    {
+        switch(msg.header.id)
+        {
+        case MessageTypes::ServerPing:
+            std::cout << "[" << client->get_id() << "] Ping from client\n";
+            client->send(msg);
+            break;
+        }
+    }
 };
 
 int main(void)
