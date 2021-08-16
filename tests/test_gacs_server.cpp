@@ -1,13 +1,5 @@
-#include <gacs_fwk.hpp>
-
-enum class MessageTypes : uint32_t
-{
-    ServerAccept,
-    ServerDeny,
-    ServerPing,
-    MessageAll,
-    ServerMessage
-};
+#include "gacs_fwk.hpp"
+#include "test_common.hpp"
 
 class TestServer : public gacs::server_interface<MessageTypes>
 {

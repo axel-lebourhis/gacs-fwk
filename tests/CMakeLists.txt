@@ -4,6 +4,8 @@ add_executable(test_gacs_server
 )
 
 target_include_directories(test_gacs_server
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}/tests
     PRIVATE
         $<TARGET_PROPERTY:gacs_common,INTERFACE_INCLUDE_DIRECTORIES>
 )
@@ -17,6 +19,8 @@ add_executable(test_gacs_client
 )
 
 target_include_directories(test_gacs_client
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}/tests
     PRIVATE
         $<TARGET_PROPERTY:gacs_common,INTERFACE_INCLUDE_DIRECTORIES>
 )
