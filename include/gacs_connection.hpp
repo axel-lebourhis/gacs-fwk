@@ -28,10 +28,7 @@ namespace gacs
             return type_;
         }
 
-        virtual bool validate_header(message<T>& msg)
-        {
-            return false;
-        }
+        virtual bool validate_header(message<T>& msg) = 0;
 
     private:
         ownerType type_;
