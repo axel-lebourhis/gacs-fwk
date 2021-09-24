@@ -7,7 +7,7 @@ add_library(gacs_common INTERFACE)
 
 target_include_directories(gacs_common INTERFACE
     ${PROJECT_SOURCE_DIR}/include
-    ${ASIO_SDK_PATH}/include
+    ${PROJECT_SOURCE_DIR}/include/asio-1.18.2/include
 )
 
 target_link_libraries(gacs_common INTERFACE
