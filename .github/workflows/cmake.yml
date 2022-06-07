@@ -25,7 +25,9 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@master
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
