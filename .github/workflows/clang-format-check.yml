@@ -7,12 +7,15 @@ jobs:
     strategy:
       matrix:
         path:
-          - 'tests'
-          - 'include'
+          - check: 'include'
+            exclude: '(asio)' # Exclude file paths containing "hello" or "world"
+          - check: 'tests'
+            exclude: ''              # Nothing to exclude
     steps:
     - uses: actions/checkout@v2
     - name: Run clang-format style check
-      uses: jidicula/clang-format-action@v4.5.0
+      uses: jidicula/clang-format-action@v4.6.2
       with:
         clang-format-version: '13'
-        check-path: ${{ matrix.path }}
+        check-path: ${{ matrix.path['check'] }}
+        exclude-regex: ${{ matrix.path['exclude'] }}
