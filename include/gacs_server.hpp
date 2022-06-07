@@ -1,198 +1,144 @@
 #pragma once
 
 #include "gacs_common.hpp"
-#include "gacs_tsqueue.hpp"
 #include "gacs_connection.hpp"
 #include "gacs_message.hpp"
+#include "gacs_tsqueue.hpp"
 
-namespace gacs
-{
-    template<typename T>
-    class server_interface : public owner<T>
-    {
-    public:
-        server_interface(uint16_t port)
-            : asioAcceptor_(asioContext_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
-              owner<T>(ownerType::server)
-        {
+namespace gacs {
+template <typename T>
+class server_interface : public owner<T> {
+   public:
+    server_interface(uint16_t port)
+        : asioAcceptor_(asioContext_, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
+          owner<T>(ownerType::server) {}
 
+    virtual ~server_interface() { stop(); }
+
+    bool start() {
+        try {
+            /* Send work to ASIO context before running the thread so it doesn't exit immediately */
+            wait_for_connection();
+
+            /* Run ASIO thread */
+            asioThread_ = std::thread([this]() { asioContext_.run(); });
+        } catch (const std::exception &e) {
+            std::cerr << "[SERVER] Exception: " << e.what() << '\n';
+            return false;
         }
 
-        virtual ~server_interface()
-        {
-            stop();
+        std::cout << "[SERVER] Server started !\n";
+        return true;
+    }
+
+    void stop() {
+        asioContext_.stop();
+        if (asioThread_.joinable()) {
+            asioThread_.join();
         }
+        std::cout << "[SERVER] Server stopped !\n";
+    }
 
-        bool start()
-        {
-            try
-            {
-                /* Send work to ASIO context before running the thread so it doesn't exit immediately */
-                wait_for_connection();
+    void wait_for_connection() {
+        asioAcceptor_.async_accept([this](std::error_code ec, asio::ip::tcp::socket socket) {
+            if (!ec) {
+                std::cout << "[SERVER] New Connection: " << socket.remote_endpoint() << "\n";
 
-                /* Run ASIO thread */
-                asioThread_ = std::thread(
-                    [this]()
-                    {
-                        asioContext_.run();
-                    }
-                );
-            }
-            catch(const std::exception& e)
-            {
-                std::cerr << "[SERVER] Exception: " <<  e.what() << '\n';
-                return false;
-            }
+                std::shared_ptr<connection<T>> newconn =
+                    std::make_shared<connection<T>>(*this, asioContext_, std::move(socket), inMessageQ_);
 
-            std::cout << "[SERVER] Server started !\n";
-            return true;
-        }
+                if (on_client_connect(newconn)) {
+                    deqConnections_.push_back(std::move(newconn));
+                    deqConnections_.back()->connect_to_client(IDCounter_++);
 
-        void stop()
-        {
-            asioContext_.stop();
-            if(asioThread_.joinable())
-            {
-                asioThread_.join();
-            }
-            std::cout << "[SERVER] Server stopped !\n";
-        }
-
-        void wait_for_connection()
-        {
-            asioAcceptor_.async_accept(
-                [this](std::error_code ec, asio::ip::tcp::socket socket)
-                {
-                    if(!ec)
-                    {
-                        std::cout << "[SERVER] New Connection: " << socket.remote_endpoint() << "\n";
-
-                        std::shared_ptr<connection<T>> newconn =
-                            std::make_shared<connection<T>>(
-                                *this,
-                                asioContext_,
-                                std::move(socket),
-                                inMessageQ_
-                            );
-
-                        if(on_client_connect(newconn))
-                        {
-                            deqConnections_.push_back(std::move(newconn));
-                            deqConnections_.back()->connect_to_client(IDCounter_++);
-
-                            std::cout << "[" << deqConnections_.back()->get_id() << "] Connection approved\n";
-                        }
-                        else
-                        {
-                            std::cout << "[-] Connection denied\n";
-                        }
-                    }
-                    else
-                    {
-                        std::cout << "[SERVER] New Connection Error: " << ec.message() << "\n";
-                    }
-
-                    wait_for_connection();
+                    std::cout << "[" << deqConnections_.back()->get_id() << "] Connection approved\n";
+                } else {
+                    std::cout << "[-] Connection denied\n";
                 }
-            );
-        }
-
-        void message_client(std::shared_ptr<connection<T>> client, const message<T>& msg)
-        {
-            if(client && client->is_connected())
-            {
-                client->send(msg);
+            } else {
+                std::cout << "[SERVER] New Connection Error: " << ec.message() << "\n";
             }
-            else
-            {
+
+            wait_for_connection();
+        });
+    }
+
+    void message_client(std::shared_ptr<connection<T>> client, const message<T> &msg) {
+        if (client && client->is_connected()) {
+            client->send(msg);
+        } else {
+            /* Connection is no more valid, we call for disconnect */
+            on_client_disconnect(client);
+            client.reset();
+            deqConnections_.erase(std::remove(deqConnections_.begin(), deqConnections_.end(), client),
+                                  deqConnections_.end());
+        }
+    }
+
+    void message_all_clients(const message<T> &msg, std::shared_ptr<connection<T>> ignoreClient = nullptr) {
+        bool invalidClientExists = false;
+
+        for (auto &client : deqConnections_) {
+            if (client && client->is_connected()) {
+                if (client != ignoreClient) {
+                    client->send(msg);
+                }
+            } else {
                 /* Connection is no more valid, we call for disconnect */
                 on_client_disconnect(client);
                 client.reset();
-                deqConnections_.erase(std::remove(deqConnections_.begin(), deqConnections_.end(), client), deqConnections_.end());
+                invalidClientExists = true;
             }
         }
 
-        void message_all_clients(const message<T>& msg, std::shared_ptr<connection<T>> ignoreClient = nullptr)
-        {
-            bool invalidClientExists = false;
+        if (invalidClientExists) {
+            deqConnections_.erase(std::remove(deqConnections_.begin(), deqConnections_.end(), nullptr),
+                                  deqConnections_.end());
+        }
+    }
 
-            for(auto& client : deqConnections_)
-            {
-                if(client && client->is_connected())
-                {
-                    if(client != ignoreClient)
-                    {
-                        client->send(msg);
-                    }
-                }
-                else
-                {
-                    /* Connection is no more valid, we call for disconnect */
-                    on_client_disconnect(client);
-                    client.reset();
-                    invalidClientExists = true;
-                }
-            }
+    void update(size_t nMaxMessages = -1, bool wait = false) {
+        size_t count = 0;
 
-            if(invalidClientExists)
-            {
-                deqConnections_.erase(std::remove(deqConnections_.begin(), deqConnections_.end(), nullptr), deqConnections_.end());
-            }
+        if (wait) {
+            inMessageQ_.wait();
         }
 
-        void update(size_t nMaxMessages = -1, bool wait = false)
-        {
-            size_t count = 0;
+        while (count < nMaxMessages && !inMessageQ_.empty()) {
+            auto ownedMsg = inMessageQ_.pop_front();
 
-            if(wait)
-            {
-                inMessageQ_.wait();
-            }
+            on_message(ownedMsg.remote, ownedMsg.msg);
 
-            while(count < nMaxMessages && !inMessageQ_.empty())
-            {
-                auto ownedMsg = inMessageQ_.pop_front();
-
-                on_message(ownedMsg.remote, ownedMsg.msg);
-
-                count++;
-            }
+            count++;
         }
+    }
 
-    protected:
+   protected:
+    virtual bool on_client_connect(std::shared_ptr<connection<T>> client) {
+        /* This function can be overriden by the user in order to filter the incoming connections
+         * By default, we accept any client (careful with security) */
+        return true;
+    }
 
-        virtual bool on_client_connect(std::shared_ptr<connection<T>> client)
-        {
-            /* This function can be overriden by the user in order to filter the incoming connections
-             * By default, we accept any client (careful with security) */
-            return true;
-        }
+    virtual void on_client_disconnect(std::shared_ptr<connection<T>> client) {}
 
-        virtual void on_client_disconnect(std::shared_ptr<connection<T>> client)
-        {
+    virtual void on_message(std::shared_ptr<connection<T>> client, message<T> &msg) {}
 
-        }
+   protected:
+    uint32_t IDCounter_ = 0;
 
-        virtual void on_message(std::shared_ptr<connection<T>> client, message<T>& msg)
-        {
+    /* Thread safe queue for incoming messages */
+    tsqueue<owned_message<T>> inMessageQ_;
 
-        }
+    /* Queue of active connections */
+    std::deque<std::shared_ptr<connection<T>>> deqConnections_;
 
-    protected:
-        uint32_t IDCounter_ = 0;
+    /* ASIO members */
+    asio::io_context asioContext_;
+    std::thread asioThread_;
+    asio::ip::tcp::acceptor asioAcceptor_;
 
-        /* Thread safe queue for incoming messages */
-        tsqueue<owned_message<T>> inMessageQ_;
-
-        /* Queue of active connections */
-        std::deque<std::shared_ptr<connection<T>>> deqConnections_;
-
-        /* ASIO members */
-        asio::io_context        asioContext_;
-        std::thread             asioThread_;
-        asio::ip::tcp::acceptor asioAcceptor_;
-
-    private:
-        virtual bool validate_header(message<T>& msg) = 0;
-    };
-}
+   private:
+    virtual bool validate_header(message<T> &msg) = 0;
+};
+}  // namespace gacs
